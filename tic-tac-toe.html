@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Крестики-нолики</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .container {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+
+        .status {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #667eea;
+            font-weight: bold;
+            min-height: 40px;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 120px);
+            grid-template-rows: repeat(3, 120px);
+            gap: 10px;
+            margin: 0 auto 30px;
+            justify-content: center;
+        }
+
+        .cell {
+            background: #f0f0f0;
+            border: none;
+            border-radius: 10px;
+            font-size: 3em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #333;
+        }
+
+        .cell:hover:not(.taken) {
+            background: #e0e0e0;
+            transform: scale(1.05);
+        }
+
+        .cell.taken {
+            cursor: not-allowed;
+        }
+
+        .cell.x {
+            color: #667eea;
+        }
+
+        .cell.o {
+            color: #764ba2;
+        }
+
+        .cell.winner {
+            background: #ffd700;
+            animation: pulse 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        .reset-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            font-weight: bold;
+        }
+
+        .reset-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .reset-btn:active {
+            transform: scale(0.95);
+        }
+
+        .stats {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            font-size: 1.1em;
+        }
+
+        .stat-item {
+            color: #333;
+        }
+
+        .stat-label {
+            font-weight: bold;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Крестики-нолики</h1>
+        <div class="status" id="status">Ходит: X</div>
+        <div class="game-board" id="gameBoard">
+            <button class="cell" data-index="0"></button>
+            <button class="cell" data-index="1"></button>
+            <button class="cell" data-index="2"></button>
+            <button class="cell" data-index="3"></button>
+            <button class="cell" data-index="4"></button>
+            <button class="cell" data-index="5"></button>
+            <button class="cell" data-index="6"></button>
+            <button class="cell" data-index="7"></button>
+            <button class="cell" data-index="8"></button>
+        </div>
+        <button class="reset-btn" id="resetBtn">Новая игра</button>
+        <div class="stats">
+            <div class="stat-item">
+                <span class="stat-label">X:</span> <span id="xWins">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">O:</span> <span id="oWins">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Ничья:</span> <span id="draws">0</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Игровые переменные
+        let board = ['', '', '', '', '', '', '', '', ''];
+        let currentPlayer = 'X';
+        let gameActive = true;
+        let stats = {
+            xWins: 0,
+            oWins: 0,
+            draws: 0
+        };
+
+        // Победные комбинации
+        const winningConditions = [
+            [0, 1, 2],
+            [3, 4, 5],
+            [6, 7, 8],
+            [0, 3, 6],
+            [1, 4, 7],
+            [2, 5, 8],
+            [0, 4, 8],
+            [2, 4, 6]
+        ];
+
+        // Элементы DOM
+        const cells = document.querySelectorAll('.cell');
+        const statusDisplay = document.getElementById('status');
+        const resetBtn = document.getElementById('resetBtn');
+        const xWinsDisplay = document.getElementById('xWins');
+        const oWinsDisplay = document.getElementById('oWins');
+        const drawsDisplay = document.getElementById('draws');
+
+        // Загрузка статистики из localStorage
+        function loadStats() {
+            const savedStats = localStorage.getItem('ticTacToeStats');
+            if (savedStats) {
+                stats = JSON.parse(savedStats);
+                updateStatsDisplay();
+            }
+        }
+
+        // Сохранение статистики в localStorage
+        function saveStats() {
+            localStorage.setItem('ticTacToeStats', JSON.stringify(stats));
+        }
+
+        // Обновление отображения статистики
+        function updateStatsDisplay() {
+            xWinsDisplay.textContent = stats.xWins;
+            oWinsDisplay.textContent = stats.oWins;
+            drawsDisplay.textContent = stats.draws;
+        }
+
+        // Обработка клика по ячейке
+        function handleCellClick(e) {
+            const cell = e.target;
+            const index = parseInt(cell.getAttribute('data-index'));
+
+            if (board[index] !== '' || !gameActive) {
+                return;
+            }
+
+            updateCell(cell, index);
+            checkResult();
+        }
+
+        // Обновление ячейки
+        function updateCell(cell, index) {
+            board[index] = currentPlayer;
+            cell.textContent = currentPlayer;
+            cell.classList.add('taken', currentPlayer.toLowerCase());
+        }
+
+        // Проверка результата
+        function checkResult() {
+            let roundWon = false;
+            let winningCombination = null;
+
+            for (let i = 0; i < winningConditions.length; i++) {
+                const [a, b, c] = winningConditions[i];
+                if (board[a] === '' || board[b] === '' || board[c] === '') {
+                    continue;
+                }
+                if (board[a] === board[b] && board[b] === board[c]) {
+                    roundWon = true;
+                    winningCombination = [a, b, c];
+                    break;
+                }
+            }
+
+            if (roundWon) {
+                statusDisplay.textContent = `Победил: ${currentPlayer}!`;
+                gameActive = false;
+                highlightWinningCells(winningCombination);
+
+                // Обновление статистики
+                if (currentPlayer === 'X') {
+                    stats.xWins++;
+                } else {
+                    stats.oWins++;
+                }
+                saveStats();
+                updateStatsDisplay();
+                return;
+            }
+
+            // Проверка на ничью
+            if (!board.includes('')) {
+                statusDisplay.textContent = 'Ничья!';
+                gameActive = false;
+                stats.draws++;
+                saveStats();
+                updateStatsDisplay();
+                return;
+            }
+
+            // Смена игрока
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            statusDisplay.textContent = `Ходит: ${currentPlayer}`;
+        }
+
+        // Подсветка победных ячеек
+        function highlightWinningCells(combination) {
+            combination.forEach(index => {
+                cells[index].classList.add('winner');
+            });
+        }
+
+        // Сброс игры
+        function resetGame() {
+            board = ['', '', '', '', '', '', '', '', ''];
+            currentPlayer = 'X';
+            gameActive = true;
+            statusDisplay.textContent = 'Ходит: X';
+
+            cells.forEach(cell => {
+                cell.textContent = '';
+                cell.classList.remove('taken', 'x', 'o', 'winner');
+            });
+        }
+
+        // Слушатели событий
+        cells.forEach(cell => {
+            cell.addEventListener('click', handleCellClick);
+        });
+
+        resetBtn.addEventListener('click', resetGame);
+
+        // Инициализация
+        loadStats();
+    </script>
+</body>
+</html>
